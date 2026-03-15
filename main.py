@@ -40,7 +40,8 @@ def save_locally(data: dict) -> str:
     return filepath
 
 
-RETRIEVAL_API_URL = "https://8dwmeuc3b1.execute-api.ap-southeast-2.amazonaws.com/Prod/store"
+RETRIEVAL_API_BASE = "https://8dwmeuc3b1.execute-api.ap-southeast-2.amazonaws.com/Prod"
+RETRIEVAL_API_URL  = f"{RETRIEVAL_API_BASE}/store"
 
 
 def post_to_retrieval_api(payload: dict) -> None:
@@ -242,6 +243,96 @@ def collect(request: CollectRequest):
     post_to_retrieval_api(payload)
 
     return payload
+
+
+@app.post("/refresh")
+def refresh():
+    """
+    Re-collect data for every company already stored in DynamoDB.
+
+    - Fetches the list of known companies from the Retrieval API's GET /companies
+    - Re-runs /collect for each one and stores fresh results
+    - Skips companies that were already collected within the last 24 hours
+    - Returns a per-company summary (collected / skipped / failed)
+    """
+    # ── Fetch known companies ────────────────────────────────────────────────
+    try:
+        resp = http_requests.get(f"{RETRIEVAL_API_BASE}/companies", timeout=10)
+        resp.raise_for_status()
+        companies = resp.json().get("companies", [])
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not reach Retrieval API /companies: {exc}")
+
+    if not companies:
+        return {"message": "No companies in database. Nothing to refresh.", "results": []}
+
+    cutoff = datetime.utcnow().replace(microsecond=0)
+
+    results = []
+    for company in companies:
+        business_name = company.get("business_name", "")
+        location      = company.get("location", "")
+        category      = company.get("category", "")
+        updated_at    = company.get("updated_at", "")
+
+        # Skip if collected within the last 24 hours
+        if updated_at:
+            try:
+                last_update = datetime.fromisoformat(updated_at)
+                if (cutoff - last_update).total_seconds() < 86400:
+                    results.append({
+                        "business_name": business_name,
+                        "location":      location,
+                        "category":      category,
+                        "status":        "skipped",
+                        "reason":        "collected within last 24 hours",
+                    })
+                    continue
+            except ValueError:
+                pass  # unparseable date — proceed with refresh
+
+        # Re-use existing collect logic directly
+        try:
+            result = collect(CollectRequest(
+                business_name=business_name,
+                location=location,
+                category=category,
+            ))
+            results.append({
+                "business_name": business_name,
+                "location":      location,
+                "category":      category,
+                "status":        "collected",
+                "total_results": result.total_results,
+            })
+        except HTTPException as exc:
+            results.append({
+                "business_name": business_name,
+                "location":      location,
+                "category":      category,
+                "status":        "failed",
+                "reason":        exc.detail,
+            })
+        except Exception as exc:
+            results.append({
+                "business_name": business_name,
+                "location":      location,
+                "category":      category,
+                "status":        "failed",
+                "reason":        str(exc),
+            })
+
+    collected = sum(1 for r in results if r["status"] == "collected")
+    skipped   = sum(1 for r in results if r["status"] == "skipped")
+    failed    = sum(1 for r in results if r["status"] == "failed")
+
+    return {
+        "total":     len(companies),
+        "collected": collected,
+        "skipped":   skipped,
+        "failed":    failed,
+        "results":   results,
+    }
 
 
 # ── Lambda handler (Mangum wraps FastAPI for AWS Lambda) ─────────────────────
