@@ -10,6 +10,11 @@ Resources:
       Runtime: python3.12
       Timeout: 60
       Events:
+        DailyRefresh:
+            Type: ScheduleV2
+            Properties:
+              ScheduleExpression: "rate(1 day)"
+              Name: GhostieDailyRefresh
         ApiCatchAll:
           Type: Api
           Properties:
