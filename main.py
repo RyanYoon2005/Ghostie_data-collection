@@ -336,7 +336,28 @@ def refresh():
 
 
 # ── Lambda handler (Mangum wraps FastAPI for AWS Lambda) ─────────────────────
-handler = Mangum(app)
+fastapi_handler = Mangum(app)
+
+#events handler
+def handler(event, context):
+    """
+    Master AWS Lambda Handler. Routes traffic based on who triggered it.
+    """
+    # 1. Check if EventBridge woke up the Lambda for the daily run
+    if event.get("source") == "aws.events":
+        print("EventBridge triggered! Running daily refresh bypassing FastAPI...")
+        
+        # Call your FastAPI endpoint function directly as a standard Python function
+        result = refresh()
+        
+        print(f"Daily refresh complete: {result}")
+        return {
+            "statusCode": 200, 
+            "body": json.dumps(result)
+        }
+    
+    # 2. If it is NOT EventBridge, pass it to FastAPI as a normal web request
+    return fastapi_handler(event, context)
 
 
 # ── Run locally ──────────────────────────────────────────────────────────────
