@@ -303,7 +303,7 @@ def refresh():
                 "location":      location,
                 "category":      category,
                 "status":        "collected",
-                "total_results": result.total_results,
+                "total_results": result["total_results"],
             })
         except HTTPException as exc:
             results.append({
