@@ -45,6 +45,13 @@ def collect_reviews(business_name: str, location: str, category: str, max_review
     search_data   = search_response.json()
     local_results = search_data.get("local_results", [])
 
+    # When Google Maps returns a single exact match, SerpAPI puts it in
+    # "place_results" instead of "local_results"
+    if not local_results:
+        place = search_data.get("place_results")
+        if place:
+            local_results = [place]
+
     if not local_results:
         print(f"  No businesses found for '{business_name}' in '{location}'")
         return []
