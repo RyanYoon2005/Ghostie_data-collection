@@ -17,15 +17,22 @@ jobs:
       - name: Install test dependencies
         run: pip install -r requirements-test.txt
 
+      - name: Install WeasyPrint system dependencies
+        run: sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0
+
       - name: Run tests and generate report
         run: python -m pytest tests/ -v --html=tests/test-report.html --self-contained-html
+
+      - name: Convert test report to PDF
+        if: always()
+        run: python -c "from weasyprint import HTML; HTML('tests/test-report.html').write_pdf('tests/test-report.pdf')"
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-report
-          path: tests/test-report.html
+          path: tests/test-report.pdf
 
   deploy:
     needs: test
