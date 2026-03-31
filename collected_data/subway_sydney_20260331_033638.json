@@ -1,0 +1,87 @@
+{
+  "business_name": "Subway",
+  "location": "Sydney",
+  "category": "restaurant",
+  "collected_at": "2026-03-31T03:36:38.856174",
+  "total_results": 4,
+  "news_count": 1,
+  "news_review_count": 1,
+  "review_count": 2,
+  "score_only_count": 1,
+  "data": [
+    {
+      "id": "news_abc123",
+      "source": "newsapi",
+      "publisher": "BBC News",
+      "timestamp": "2026-03-20T10:00:00Z",
+      "query": {
+        "business_name": "Subway",
+        "location": "Sydney",
+        "category": "restaurant"
+      },
+      "title": "Subway opens new restaurant in Sydney",
+      "body": "Subway has opened a new outlet in Sydney CBD.",
+      "url": "https://bbc.com/news/subway-1",
+      "metadata": {
+        "author": "Jane Doe"
+      }
+    },
+    {
+      "id": "newsreview_def456",
+      "source": "news_review",
+      "publisher": "Time Out",
+      "timestamp": "2026-03-18T12:00:00Z",
+      "query": {
+        "business_name": "Subway",
+        "location": "Sydney",
+        "category": "restaurant"
+      },
+      "title": "Subway Sydney review",
+      "body": "A surprisingly decent sandwich.",
+      "url": "https://timeout.com/subway-review",
+      "metadata": {
+        "author": "Critic Jones"
+      }
+    },
+    {
+      "id": "review_ghi789",
+      "source": "google_maps_reviews",
+      "publisher": "Google Maps",
+      "timestamp": "2026-03-15T00:00:00Z",
+      "query": {
+        "business_name": "Subway",
+        "location": "Sydney",
+        "category": "restaurant"
+      },
+      "title": "Customer review for Subway",
+      "body": "Amazing sandwiches, great service!",
+      "url": "https://maps.google.com/?cid=1234",
+      "metadata": {
+        "author": "Alice",
+        "rating": 5.0,
+        "likes": 3
+      },
+      "data_type": "text_review"
+    },
+    {
+      "id": "review_jkl012",
+      "source": "google_maps_reviews",
+      "publisher": "Google Maps",
+      "timestamp": "2026-02-15T00:00:00Z",
+      "query": {
+        "business_name": "Subway",
+        "location": "Sydney",
+        "category": "restaurant"
+      },
+      "title": "Customer review for Subway",
+      "body": "",
+      "url": "https://maps.google.com/?cid=5678",
+      "metadata": {
+        "author": "Bob",
+        "rating": 2.0,
+        "likes": 0
+      },
+      "data_type": "score_only"
+    }
+  ]
+}
