@@ -17,8 +17,11 @@ jobs:
       - name: Install test dependencies
         run: pip install -r requirements-test.txt
 
+      - name: Lint with ruff
+        run: ruff check .
+
       - name: Run tests and generate report
-        run: python -m pytest tests/ -v --html=tests/test-report.html --self-contained-html
+        run: python -m pytest tests/ -v --html=tests/test-report.html --self-contained-html --cov=. --cov-report=term-missing --cov-fail-under=80 --log-cli-level=INFO
 
       - name: Install Playwright and Chromium
         if: always()
