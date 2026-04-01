@@ -6,13 +6,11 @@ Level of abstraction: Unit
 - Tests verify the transformation, filtering, and error-handling logic
   inside collect_news() and collect_news_reviews() in complete isolation.
 """
-import pytest
 from unittest.mock import patch, MagicMock
 
 from mock_data import (
     MOCK_NEWSAPI_RESPONSE,
     MOCK_NEWSAPI_EMPTY_RESPONSE,
-    MOCK_NEWSAPI_ARTICLE,
     MOCK_NEWSAPI_IRRELEVANT_ARTICLE,
 )
 from NewsCollector import collect_news, collect_news_reviews
@@ -228,7 +226,7 @@ class TestCollectNewsReviews:
         plan_response = _mock_response(426, {})
         with patch("NewsCollector.requests.get") as mock_get:
             mock_get.side_effect = [plan_response, ok_response]
-            result = collect_news_reviews("Subway", "Sydney", "restaurant")
+            collect_news_reviews("Subway", "Sydney", "restaurant")
         assert mock_get.call_count == 2
 
     def test_query_includes_review_keyword(self):

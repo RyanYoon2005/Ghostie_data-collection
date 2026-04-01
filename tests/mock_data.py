@@ -3,8 +3,6 @@ Shared pytest fixtures and mock data for the Ghostie Data Collection test suite.
 """
 import sys
 import os
-import pytest
-
 # Ensure project root is on the path so tests can import source modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 

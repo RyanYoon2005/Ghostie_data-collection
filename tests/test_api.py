@@ -8,9 +8,6 @@ Level of abstraction: Component
 - External dependencies (NewsCollector, ReviewCollector, Retrieval API) are
   mocked at the function level so tests are deterministic and offline.
 """
-import json
-import os
-import pytest
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 

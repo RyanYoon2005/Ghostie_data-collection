@@ -1,7 +1,6 @@
 import requests
 import json
 import argparse
-from datetime import datetime
 
 SERP_API_KEY = "2324e806dec317b866340513d6739a527e3ce903d2c9690b3f4524eb7953b5b8"
 SERP_BASE_URL = "https://serpapi.com/search"
@@ -153,9 +152,12 @@ if __name__ == "__main__":
     location      = (args.location  or "").strip() or input("Enter location (city / country): ").strip()
     category      = (args.category  or "").strip() or input("Enter category (restaurant / hotel / bar): ").strip()
 
-    if not business_name: raise SystemExit("  Business name cannot be empty.")
-    if not location:      raise SystemExit("  Location cannot be empty.")
-    if not category:      raise SystemExit("  Category cannot be empty.")
+    if not business_name:
+        raise SystemExit("  Business name cannot be empty.")
+    if not location:
+        raise SystemExit("  Location cannot be empty.")
+    if not category:
+        raise SystemExit("  Category cannot be empty.")
 
     results = collect_reviews(business_name, location, category, max_reviews=args.max)
 
