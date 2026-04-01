@@ -40,7 +40,7 @@ def save_locally(data: dict) -> str:
     return filepath
 
 
-RETRIEVAL_API_BASE = "https://8dwmeuc3b1.execute-api.ap-southeast-2.amazonaws.com/Prod"
+RETRIEVAL_API_BASE = os.environ["RETRIEVAL_API_BASE"]
 RETRIEVAL_API_URL  = f"{RETRIEVAL_API_BASE}/store"
 
 

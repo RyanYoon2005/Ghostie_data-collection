@@ -71,4 +71,13 @@ jobs:
 
       - run: sam build
 
-      - run: sam deploy --stack-name Ghostie-data-collection --resolve-s3 --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset
+      - run: >
+          sam deploy
+          --stack-name Ghostie-data-collection
+          --resolve-s3
+          --capabilities CAPABILITY_IAM
+          --no-fail-on-empty-changeset
+          --parameter-overrides
+          NewsApiKey=${{ secrets.NEWSAPI_KEY }}
+          SerpApiKey=${{ secrets.SERP_API_KEY }}
+          RetrievalApiBase=${{ secrets.RETRIEVAL_API_BASE }}

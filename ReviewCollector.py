@@ -1,8 +1,9 @@
 import requests
 import json
 import argparse
+import os
 
-SERP_API_KEY = "2324e806dec317b866340513d6739a527e3ce903d2c9690b3f4524eb7953b5b8"
+SERP_API_KEY = os.environ["SERP_API_KEY"]
 SERP_BASE_URL = "https://serpapi.com/search"
 
 

@@ -1,9 +1,10 @@
 import requests
 import json
 import argparse
+import os
 from datetime import datetime, timedelta
 
-API_KEY = "7fcff161440b4fd9aae0536fe7a62c1a"
+API_KEY = os.environ["NEWSAPI_KEY"]
 BASE_URL = "https://newsapi.org/v2/everything"
 
 MAX_DAYS_BACK = 29
