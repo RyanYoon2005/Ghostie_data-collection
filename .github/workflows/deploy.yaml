@@ -21,10 +21,13 @@ jobs:
         run: ruff check .
 
       - name: Run unit tests and generate report
-        run: python -m pytest tests/ -m unit --html=tests/unit-test-report.html --cov=. --cov-report=term-missing --cov-fail-under=80 --log-cli-level=INFO
+        run: python -m pytest tests/ -m unit --html=tests/unit-test-report.html --log-cli-level=INFO
 
       - name: Run integration tests and generate report
         run: python -m pytest tests/ -m integration --html=tests/integration-test-report.html --log-cli-level=INFO
+
+      - name: Check combined coverage
+        run: python -m pytest tests/ --cov=. --cov-report=term-missing --cov-fail-under=80
 
       - name: Install Playwright and Chromium
         if: always()
