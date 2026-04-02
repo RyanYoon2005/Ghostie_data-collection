@@ -20,8 +20,11 @@ jobs:
       - name: Lint with ruff
         run: ruff check .
 
-      - name: Run tests and generate report
-        run: python -m pytest tests/ -v --html=tests/test-report.html --self-contained-html --cov=. --cov-report=term-missing --cov-fail-under=80 --log-cli-level=INFO
+      - name: Run unit tests and generate report
+        run: python -m pytest tests/ -m unit --html=tests/unit-test-report.html --cov=. --cov-report=term-missing --cov-fail-under=80 --log-cli-level=INFO
+
+      - name: Run integration tests and generate report
+        run: python -m pytest tests/ -m integration --html=tests/integration-test-report.html --log-cli-level=INFO
 
       - name: Install Playwright and Chromium
         if: always()
@@ -29,7 +32,7 @@ jobs:
           playwright install chromium
           playwright install-deps chromium
 
-      - name: Convert test report to PDF
+      - name: Convert test reports to PDF
         if: always()
         run: |
           python -c "
@@ -37,19 +40,27 @@ jobs:
           import os
           with sync_playwright() as p:
               browser = p.chromium.launch()
-              page = browser.new_page()
-              page.goto('file://' + os.path.abspath('tests/test-report.html'))
-              page.wait_for_load_state('networkidle')
-              page.pdf(path='tests/test-report.pdf', format='A4', print_background=True)
+              for name in ['unit-test-report', 'integration-test-report']:
+                  page = browser.new_page()
+                  page.goto('file://' + os.path.abspath(f'tests/{name}.html'))
+                  page.wait_for_load_state('networkidle')
+                  page.pdf(path=f'tests/{name}.pdf', format='A4', print_background=True)
               browser.close()
           "
 
-      - name: Upload test report
+      - name: Upload unit test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-report
-          path: tests/test-report.pdf
+          name: unit-test-report
+          path: tests/unit-test-report.pdf
+
+      - name: Upload integration test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-report
+          path: tests/integration-test-report.pdf
 
   deploy:
     needs: test

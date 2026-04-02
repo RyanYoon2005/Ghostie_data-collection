@@ -6,6 +6,7 @@ Level of abstraction: Unit
 - Tests verify the transformation, filtering, and error-handling logic
   inside collect_news() and collect_news_reviews() in complete isolation.
 """
+import pytest
 from unittest.mock import patch, MagicMock
 
 from mock_data import (
@@ -15,6 +16,7 @@ from mock_data import (
 )
 from NewsCollector import collect_news, collect_news_reviews
 
+pytestmark = pytest.mark.unit
 
 # ---------------------------------------------------------------------------
 # Helpers

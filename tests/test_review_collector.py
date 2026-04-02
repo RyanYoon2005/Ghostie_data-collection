@@ -6,6 +6,7 @@ Level of abstraction: Unit
 - Tests verify that collect_reviews() correctly transforms SerpAPI data,
   classifies score-only vs text reviews, and handles API failures gracefully.
 """
+import pytest
 from unittest.mock import patch, MagicMock
 
 from mock_data import (
@@ -15,6 +16,7 @@ from mock_data import (
 )
 from ReviewCollector import collect_reviews
 
+pytestmark = pytest.mark.unit
 
 # ---------------------------------------------------------------------------
 # Helpers
