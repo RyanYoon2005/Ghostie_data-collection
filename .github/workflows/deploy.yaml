@@ -41,8 +41,11 @@ jobs:
           with sync_playwright() as p:
               browser = p.chromium.launch()
               for name in ['unit-test-report', 'integration-test-report']:
+                  html_path = os.path.abspath(f'tests/{name}.html')
+                  if not os.path.exists(html_path):
+                      continue
                   page = browser.new_page()
-                  page.goto('file://' + os.path.abspath(f'tests/{name}.html'))
+                  page.goto('file://' + html_path)
                   page.wait_for_load_state('networkidle')
                   page.pdf(path=f'tests/{name}.pdf', format='A4', print_background=True)
               browser.close()

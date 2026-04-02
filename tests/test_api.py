@@ -12,10 +12,10 @@ import pytest
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
-pytestmark = pytest.mark.integration
-
 # FastAPI TestClient requires the app (not the Lambda handler)
 from main import app
+
+pytestmark = pytest.mark.integration
 
 client = TestClient(app)
 
