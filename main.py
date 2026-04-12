@@ -12,6 +12,7 @@ import requests as http_requests
 # Import our collectors
 from NewsCollector import collect_news, collect_news_reviews
 from ReviewCollector import collect_reviews
+from RedditCollector import collect_reddit_posts
 
 # ── Local storage folder ─────────────────────────────────────────────────────
 # Results are saved here until S3 is ready.
@@ -113,6 +114,7 @@ class CollectResponse(BaseModel):
     news_count: int
     news_review_count: int
     review_count: int
+    reddit_count: int
     score_only_count: int
     saved_to: str        # local filepath (will become S3 key later)
     data: list
@@ -181,6 +183,7 @@ def collect(request: CollectRequest):
     news_results        = []
     news_review_results = []
     review_results      = []
+    reddit_results      = []
     errors              = []
 
     try:
@@ -207,8 +210,16 @@ def collect(request: CollectRequest):
         errors.append(f"SerpAPI error: {str(e)}")
         print(f"  SerpAPI failed: {e}")
 
+    try:
+        print("  Fetching Reddit posts...")
+        reddit_results = collect_reddit_posts(business_name, location, category)
+        print(f"  Got {len(reddit_results)} Reddit posts")
+    except Exception as e:
+        errors.append(f"Charlie API error: {str(e)}")
+        print(f"  Charlie API failed: {e}")
+
     # ── Combine results ──────────────────────────────────────────────────────
-    combined = news_results + news_review_results + review_results
+    combined = news_results + news_review_results + review_results + reddit_results
 
     if not combined:
         raise HTTPException(
@@ -228,6 +239,7 @@ def collect(request: CollectRequest):
         "news_count":       len(news_results),
         "news_review_count": len(news_review_results),
         "review_count":     len(review_results),
+        "reddit_count":     len(reddit_results),
         "score_only_count": score_only_count,
         "data":             combined,
     }

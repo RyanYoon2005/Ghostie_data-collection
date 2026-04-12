@@ -10,6 +10,16 @@ Parameters:
     NoEcho: true
   RetrievalApiBase:
     Type: String
+  CharlieApiUrl:
+    Type: String
+    Default: ""
+  CharlieApiEmail:
+    Type: String
+    Default: ""
+  CharlieApiPassword:
+    Type: String
+    Default: ""
+    NoEcho: true
 
 Resources:
   DataCollectionFunction:
@@ -24,6 +34,9 @@ Resources:
           NEWSAPI_KEY: !Ref NewsApiKey
           SERP_API_KEY: !Ref SerpApiKey
           RETRIEVAL_API_BASE: !Ref RetrievalApiBase
+          CHARLIE_API_URL: !Ref CharlieApiUrl
+          CHARLIE_API_EMAIL: !Ref CharlieApiEmail
+          CHARLIE_API_PASSWORD: !Ref CharlieApiPassword
       Events:
         DailyRefresh:
             Type: ScheduleV2
