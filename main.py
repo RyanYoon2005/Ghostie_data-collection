@@ -141,6 +141,52 @@ def health():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
 
+@app.get("/debug/reddit")
+def debug_reddit():
+    """Temporary debug endpoint — shows raw Charlie API auth + search response."""
+    import os, requests as req
+
+    url   = os.environ.get("CHARLIE_API_URL", "")
+    email = os.environ.get("CHARLIE_API_EMAIL", "")
+    pwd   = os.environ.get("CHARLIE_API_PASSWORD", "")
+
+    if not url or not email or not pwd:
+        return {"error": "credentials_missing", "CHARLIE_API_URL_set": bool(url),
+                "CHARLIE_API_EMAIL_set": bool(email), "CHARLIE_API_PASSWORD_set": bool(pwd)}
+
+    # Step 1: auth
+    try:
+        auth_resp = req.post(f"{url}/v1/auth/login",
+                             json={"email": email, "password": pwd}, timeout=10)
+        auth_data = auth_resp.json()
+    except Exception as e:
+        return {"error": "auth_request_failed", "detail": str(e)}
+
+    if auth_resp.status_code != 200:
+        return {"error": "auth_failed", "status": auth_resp.status_code, "body": auth_data}
+
+    token = auth_data.get("token") or auth_data.get("access_token") or auth_data.get("data", {}).get("token")
+    if not token:
+        return {"error": "token_not_found", "auth_response_keys": list(auth_data.keys()), "auth_body": auth_data}
+
+    # Step 2: search
+    try:
+        search_resp = req.get(f"{url}/v1/post/search",
+                              params={"query": "Subway Sydney restaurant", "limit": 3},
+                              headers={"Authorization": f"Bearer {token}"}, timeout=30)
+        search_data = search_resp.json()
+    except Exception as e:
+        return {"error": "search_request_failed", "detail": str(e)}
+
+    return {
+        "auth_status": auth_resp.status_code,
+        "auth_response_keys": list(auth_data.keys()),
+        "search_status": search_resp.status_code,
+        "search_response_keys": list(search_data.keys()) if isinstance(search_data, dict) else type(search_data).__name__,
+        "search_raw": search_data,
+    }
+
+
 @app.get("/results")
 def list_results():
     """List all locally saved result files."""
