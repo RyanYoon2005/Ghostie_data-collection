@@ -52,7 +52,7 @@ def collect_reddit_posts(business_name: str, location: str, category: str, limit
 
     response = requests.get(
         f"{CHARLIE_API_URL}/v1/post/search",
-        params={"query": query, "subreddit": category, "limit": limit},
+        params={"query": query, "subreddit": business_name, "limit": limit},
         headers=headers,
         timeout=30,
     )
