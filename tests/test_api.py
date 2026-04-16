@@ -79,19 +79,35 @@ MOCK_REVIEWS = [
     },
 ]
 
+MOCK_REDDIT = [
+    {
+        "id": "reddit_abc123",
+        "source": "reddit",
+        "publisher": "r/sydney",
+        "timestamp": "2026-03-10T08:00:00Z",
+        "query": {"business_name": "Subway", "location": "Sydney", "category": "restaurant"},
+        "title": "Anyone tried the new Subway in Sydney CBD?",
+        "body": "Went there yesterday, pretty decent for the price.",
+        "url": "https://www.reddit.com/r/sydney/comments/abc123",
+        "data_type": "text_review",
+        "metadata": {"author": "redditor_xyz", "score": 42, "subreddit": "sydney"},
+    }
+]
+
 
 def _mock_collect_success(*args, **kwargs):
-    """Patch that simulates all three collectors returning data."""
+    """Patch that simulates all collectors returning data."""
     return MOCK_NEWS, MOCK_NEWS_REVIEWS, MOCK_REVIEWS
 
 
 def _patch_all_collectors(news=MOCK_NEWS, reviews=MOCK_NEWS_REVIEWS, maps=MOCK_REVIEWS,
-                           retrieval_ok=True):
+                           reddit=MOCK_REDDIT, retrieval_ok=True):
     """Context-manager stack: patches collectors + Retrieval API post."""
     patches = [
         patch("main.collect_news", return_value=news),
         patch("main.collect_news_reviews", return_value=reviews),
         patch("main.collect_reviews", return_value=maps),
+        patch("main.collect_reddit_posts", return_value=reddit),
     ]
     if retrieval_ok:
         mock_post = MagicMock()
@@ -239,7 +255,7 @@ class TestCollectEndpointSuccess:
         required = {
             "business_name", "location", "category", "collected_at",
             "total_results", "news_count", "news_review_count",
-            "review_count", "score_only_count", "data"
+            "review_count", "reddit_count", "score_only_count", "data"
         }
         assert required.issubset(body.keys()), f"Missing: {required - body.keys()}"
 
@@ -257,6 +273,7 @@ class TestCollectEndpointSuccess:
         assert body["news_count"] == len(MOCK_NEWS)
         assert body["news_review_count"] == len(MOCK_NEWS_REVIEWS)
         assert body["review_count"] == len(MOCK_REVIEWS)
+        assert body["reddit_count"] == len(MOCK_REDDIT)
 
     def test_total_results_is_sum_of_all_sources(self):
         for p in _patch_all_collectors():
@@ -269,7 +286,7 @@ class TestCollectEndpointSuccess:
         finally:
             patch.stopall()
         body = response.json()
-        expected_total = len(MOCK_NEWS) + len(MOCK_NEWS_REVIEWS) + len(MOCK_REVIEWS)
+        expected_total = len(MOCK_NEWS) + len(MOCK_NEWS_REVIEWS) + len(MOCK_REVIEWS) + len(MOCK_REDDIT)
         assert body["total_results"] == expected_total
 
     def test_score_only_count_correct(self):
@@ -311,11 +328,11 @@ class TestCollectEndpointSuccess:
             patch.stopall()
         data = response.json()["data"]
         assert isinstance(data, list)
-        assert len(data) == len(MOCK_NEWS) + len(MOCK_NEWS_REVIEWS) + len(MOCK_REVIEWS)
+        assert len(data) == len(MOCK_NEWS) + len(MOCK_NEWS_REVIEWS) + len(MOCK_REVIEWS) + len(MOCK_REDDIT)
 
     def test_returns_404_when_all_sources_empty(self):
         """Returns 404 when no data is collected from any source."""
-        for p in _patch_all_collectors(news=[], reviews=[], maps=[]):
+        for p in _patch_all_collectors(news=[], reviews=[], maps=[], reddit=[]):
             p.start()
         try:
             response = client.post(

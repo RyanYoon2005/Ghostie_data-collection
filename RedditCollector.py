@@ -48,7 +48,7 @@ def collect_reddit_posts(business_name: str, location: str, category: str, limit
         return []
 
     headers = {"Authorization": f"Bearer {token}"}
-    query = f"{business_name} {category}"
+    query = f"{business_name} {location} {category}"
 
     response = requests.get(
         f"{CHARLIE_API_URL}/v1/post/search",
@@ -62,7 +62,17 @@ def collect_reddit_posts(business_name: str, location: str, category: str, limit
         return []
 
     data = response.json()
-    raw_posts = data.get("data", {}).get("events", [])
+    print(f"  Charlie API raw response keys: {list(data.keys())}")
+
+    # Try common response structures
+    raw_posts = (
+        data.get("data", {}).get("events")
+        or data.get("data", {}).get("posts")
+        or data.get("events")
+        or data.get("posts")
+        or (data.get("data") if isinstance(data.get("data"), list) else None)
+        or []
+    )
     print(f"  Fetched {len(raw_posts)} Reddit posts\n")
 
     if not raw_posts:
