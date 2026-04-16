@@ -2,6 +2,7 @@ import requests
 import json
 import argparse
 import os
+from datetime import datetime, timezone
 
 CHARLIE_API_URL = os.environ.get("CHARLIE_API_URL", "")
 CHARLIE_API_EMAIL = os.environ.get("CHARLIE_API_EMAIL", "")
@@ -48,7 +49,7 @@ def collect_reddit_posts(business_name: str, location: str, category: str, limit
         return []
 
     headers = {"Authorization": f"Bearer {token}"}
-    query = f"{business_name} {location} {category}"
+    query = business_name
 
     response = requests.get(
         f"{CHARLIE_API_URL}/v1/post/search",
@@ -82,12 +83,16 @@ def collect_reddit_posts(business_name: str, location: str, category: str, limit
     standardized = []
     for event in raw_posts:
         attrs = event.get("attributes", {})
-        time_obj = event.get("time_object", {})
+        created_utc = attrs.get("created_utc")
+        if created_utc:
+            timestamp = datetime.fromtimestamp(created_utc, tz=timezone.utc).isoformat()
+        else:
+            timestamp = ""
         standardized.append({
             "id":        f"reddit_{abs(hash(attrs.get('id', attrs.get('title', ''))))}",
             "source":    "reddit",
             "publisher": f"r/{attrs.get('subreddit', 'unknown')}",
-            "timestamp": time_obj.get("timestamp", ""),
+            "timestamp": timestamp,
             "query": {
                 "business_name": business_name,
                 "location":      location,
