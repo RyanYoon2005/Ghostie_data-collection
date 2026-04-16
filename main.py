@@ -144,7 +144,7 @@ def health():
 @app.get("/debug/reddit")
 def debug_reddit():
     """Temporary debug endpoint — shows raw Charlie API auth + search response."""
-    import os, requests as req
+    import requests as req
 
     url   = os.environ.get("CHARLIE_API_URL", "")
     email = os.environ.get("CHARLIE_API_EMAIL", "")
