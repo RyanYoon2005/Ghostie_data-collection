@@ -172,7 +172,7 @@ def debug_reddit():
     # Step 2: search
     try:
         search_resp = req.get(f"{url}/v1/post/search",
-                              params={"query": "Subway", "limit": 3},
+                              params={"query": "Subway", "subreddit": "restaurant", "limit": 3},
                               headers={"Authorization": f"Bearer {token}"}, timeout=30)
         search_data = search_resp.json()
     except Exception as e:
