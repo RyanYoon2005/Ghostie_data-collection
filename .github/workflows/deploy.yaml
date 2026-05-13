@@ -97,6 +97,7 @@ jobs:
           --parameter-overrides
           NewsApiKey=${{ secrets.NEWSAPI_KEY }}
           SerpApiKey=${{ secrets.SERP_API_KEY }}
+          FinnhubApiKey=${{ secrets.FINNHUB_API_KEY }}
           RetrievalApiBase=${{ secrets.RETRIEVAL_API_BASE }}
           CharlieApiUrl=${{ secrets.CHARLIE_API_URL }}
           CharlieApiEmail=${{ secrets.CHARLIE_API_EMAIL }}

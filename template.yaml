@@ -8,6 +8,9 @@ Parameters:
   SerpApiKey:
     Type: String
     NoEcho: true
+  FinnhubApiKey:
+    Type: String
+    NoEcho: true
   RetrievalApiBase:
     Type: String
   CharlieApiUrl:
@@ -33,6 +36,7 @@ Resources:
         Variables:
           NEWSAPI_KEY: !Ref NewsApiKey
           SERP_API_KEY: !Ref SerpApiKey
+          FINNHUB_API_KEY: !Ref FinnhubApiKey
           RETRIEVAL_API_BASE: !Ref RetrievalApiBase
           CHARLIE_API_URL: !Ref CharlieApiUrl
           CHARLIE_API_EMAIL: !Ref CharlieApiEmail

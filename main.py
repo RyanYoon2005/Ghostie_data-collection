@@ -13,6 +13,7 @@ import requests as http_requests
 from NewsCollector import collect_news, collect_news_reviews
 from ReviewCollector import collect_reviews
 from RedditCollector import collect_reddit_posts
+from StockCollector import _search_symbol, _fetch_quote, collect_stock_history
 
 # ── Local storage folder ─────────────────────────────────────────────────────
 # Results are saved here until S3 is ready.
@@ -129,9 +130,10 @@ def root():
         "version": "1.0.0",
         "status":  "running",
         "endpoints": {
-            "POST /collect": "Collect news and reviews for a business",
-            "GET /health":   "Health check",
-            "GET /results":  "List all saved result files"
+            "POST /collect":  "Collect news and reviews for a business",
+            "GET /stock":     "Fetch stock quote + price history for a publicly listed business",
+            "GET /health":    "Health check",
+            "GET /results":   "List all saved result files"
         }
     }
 
@@ -150,6 +152,54 @@ def list_results():
     return {
         "count": len(files),
         "files": files
+    }
+
+
+@app.get("/stock")
+def stock(business_name: str, days_back: int = 365):
+    """
+    Return stock quote + daily price history for a publicly listed business.
+
+    Intended for the frontend to render a sentiment-vs-stock-price correlation
+    chart. Not part of the sentiment collection pipeline — called independently.
+
+    Args:
+        business_name : Company name to look up (e.g. "McDonald's")
+        days_back     : Days of price history to return (default 365, max 365)
+
+    Returns 404 if the business cannot be matched to a listed ticker.
+    """
+    business_name = business_name.strip()
+    if not business_name:
+        raise HTTPException(status_code=400, detail="business_name cannot be empty")
+
+    symbol = _search_symbol(business_name)
+    if not symbol:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No stock ticker found for '{business_name}'. It may not be publicly listed."
+        )
+
+    quote   = _fetch_quote(symbol)
+    candles = collect_stock_history(symbol, days_back=days_back)
+
+    change_pct = None
+    if quote and quote.get("c") and quote.get("pc"):
+        change_pct = round(((quote["c"] - quote["pc"]) / quote["pc"]) * 100, 2)
+
+    return {
+        "business_name": business_name,
+        "symbol":        symbol,
+        "quote": {
+            "current_price":  quote.get("c") if quote else None,
+            "open":           quote.get("o") if quote else None,
+            "high":           quote.get("h") if quote else None,
+            "low":            quote.get("l") if quote else None,
+            "prev_close":     quote.get("pc") if quote else None,
+            "change_percent": change_pct,
+        },
+        "history_days":  len(candles),
+        "price_history": candles,   # [{date, open, high, low, close, volume}, ...]
     }
 
 
