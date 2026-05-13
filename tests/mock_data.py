@@ -91,6 +91,63 @@ MOCK_SERP_REVIEWS_RESPONSE = {
     ]
 }
 
+MOCK_FINNHUB_SEARCH_RESPONSE = {
+    "count": 2,
+    "result": [
+        {"description": "MCDONALD'S CORP", "displaySymbol": "MCD", "symbol": "MCD", "type": "Common Stock"},
+        {"description": "MCDONALD'S HOLDINGS CO JAPAN", "displaySymbol": "2702", "symbol": "2702", "type": "Common Stock"},
+    ],
+}
+
+MOCK_FINNHUB_SEARCH_EXACT_RESPONSE = {
+    "count": 1,
+    "result": [
+        {"description": "subway", "displaySymbol": "SUBW", "symbol": "SUBW", "type": "Common Stock"},
+    ],
+}
+
+MOCK_FINNHUB_SEARCH_EMPTY_RESPONSE = {
+    "count": 0,
+    "result": [],
+}
+
+MOCK_FINNHUB_QUOTE_RESPONSE = {
+    "c":  295.50,   # current price
+    "o":  290.00,   # open
+    "h":  297.00,   # high
+    "l":  289.50,   # low
+    "pc": 291.25,   # previous close
+    "t":  1748000000,
+}
+
+MOCK_FINNHUB_NEWS_RESPONSE = [
+    {
+        "category": "company news",
+        "datetime": 1748000000,
+        "headline": "McDonald's reports strong Q1 earnings",
+        "id": 123456,
+        "image": "https://example.com/img.jpg",
+        "related": "MCD",
+        "source": "Reuters",
+        "summary": "McDonald's Corporation reported better-than-expected Q1 earnings.",
+        "url": "https://reuters.com/mcd-earnings",
+    }
+]
+
+MOCK_FINNHUB_CANDLE_RESPONSE = {
+    "s": "ok",
+    "t": [1745000000, 1745086400, 1745172800],
+    "o": [288.0, 290.0, 292.0],
+    "h": [291.0, 293.0, 295.0],
+    "l": [287.0, 289.0, 291.0],
+    "c": [290.0, 292.0, 294.0],
+    "v": [3000000, 3200000, 2900000],
+}
+
+MOCK_FINNHUB_CANDLE_NO_DATA_RESPONSE = {
+    "s": "no_data",
+}
+
 MOCK_RETRIEVAL_COMPANIES_RESPONSE = {
     "companies": [
         {

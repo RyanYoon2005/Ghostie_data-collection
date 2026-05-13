@@ -461,3 +461,92 @@ class TestRefreshEndpoint:
         # Should have some form of summary (total/skipped/failed/collected)
         summary_keys = {"total", "skipped", "failed", "collected", "results", "message"}
         assert summary_keys & body.keys(), f"No summary keys found in: {body.keys()}"
+
+
+# ---------------------------------------------------------------------------
+# GET /stock
+# ---------------------------------------------------------------------------
+
+MOCK_STOCK_CANDLES = [
+    {"date": "2026-04-14", "open": 288.0, "high": 291.0, "low": 287.0, "close": 290.0, "volume": 3000000},
+    {"date": "2026-04-15", "open": 290.0, "high": 293.0, "low": 289.0, "close": 292.0, "volume": 3200000},
+]
+
+MOCK_STOCK_QUOTE = {
+    "c": 295.50, "o": 290.00, "h": 297.00, "l": 289.50, "pc": 291.25,
+}
+
+
+class TestStockEndpoint:
+
+    def test_returns_200_when_symbol_found(self):
+        """Returns 200 when a valid ticker is found for the business."""
+        with patch("main._search_symbol", return_value="MCD"), \
+             patch("main._fetch_quote", return_value=MOCK_STOCK_QUOTE), \
+             patch("main.collect_stock_history", return_value=MOCK_STOCK_CANDLES):
+            response = client.get("/stock?business_name=McDonald%27s")
+        assert response.status_code == 200
+
+    def test_returns_404_when_symbol_not_found(self):
+        """Returns 404 when the business cannot be matched to a listed ticker."""
+        with patch("main._search_symbol", return_value=None):
+            response = client.get("/stock?business_name=Unknown+Cafe+XYZ")
+        assert response.status_code == 404
+
+    def test_returns_400_when_business_name_empty(self):
+        """Returns 400 when business_name query param is blank."""
+        response = client.get("/stock?business_name=")
+        assert response.status_code == 400
+
+    def test_response_contains_required_fields(self):
+        """Response body includes business_name, symbol, quote, and price_history."""
+        with patch("main._search_symbol", return_value="MCD"), \
+             patch("main._fetch_quote", return_value=MOCK_STOCK_QUOTE), \
+             patch("main.collect_stock_history", return_value=MOCK_STOCK_CANDLES):
+            response = client.get("/stock?business_name=McDonald%27s")
+        body = response.json()
+        assert "business_name" in body
+        assert "symbol" in body
+        assert "quote" in body
+        assert "price_history" in body
+
+    def test_symbol_in_response_matches_lookup(self):
+        """The symbol field in the response is what _search_symbol returned."""
+        with patch("main._search_symbol", return_value="MCD"), \
+             patch("main._fetch_quote", return_value=MOCK_STOCK_QUOTE), \
+             patch("main.collect_stock_history", return_value=MOCK_STOCK_CANDLES):
+            response = client.get("/stock?business_name=McDonald%27s")
+        assert response.json()["symbol"] == "MCD"
+
+    def test_price_history_is_list(self):
+        """price_history field is a list of candle dicts."""
+        with patch("main._search_symbol", return_value="MCD"), \
+             patch("main._fetch_quote", return_value=MOCK_STOCK_QUOTE), \
+             patch("main.collect_stock_history", return_value=MOCK_STOCK_CANDLES):
+            response = client.get("/stock?business_name=McDonald%27s")
+        assert isinstance(response.json()["price_history"], list)
+
+    def test_history_days_matches_candle_count(self):
+        """history_days equals the length of price_history."""
+        with patch("main._search_symbol", return_value="MCD"), \
+             patch("main._fetch_quote", return_value=MOCK_STOCK_QUOTE), \
+             patch("main.collect_stock_history", return_value=MOCK_STOCK_CANDLES):
+            response = client.get("/stock?business_name=McDonald%27s")
+        body = response.json()
+        assert body["history_days"] == len(body["price_history"])
+
+    def test_quote_contains_change_percent(self):
+        """The quote section includes a calculated change_percent field."""
+        with patch("main._search_symbol", return_value="MCD"), \
+             patch("main._fetch_quote", return_value=MOCK_STOCK_QUOTE), \
+             patch("main.collect_stock_history", return_value=MOCK_STOCK_CANDLES):
+            response = client.get("/stock?business_name=McDonald%27s")
+        assert "change_percent" in response.json()["quote"]
+
+    def test_days_back_param_forwarded_to_history(self):
+        """The days_back query param is passed through to collect_stock_history."""
+        with patch("main._search_symbol", return_value="MCD"), \
+             patch("main._fetch_quote", return_value=MOCK_STOCK_QUOTE), \
+             patch("main.collect_stock_history", return_value=[]) as mock_hist:
+            client.get("/stock?business_name=McDonald%27s&days_back=30")
+        mock_hist.assert_called_once_with("MCD", days_back=30)
