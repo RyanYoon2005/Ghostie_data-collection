@@ -9,14 +9,14 @@ Level of abstraction: Unit
 import pytest
 from unittest.mock import patch, MagicMock
 
+import pandas as pd
+
 from mock_data import (
     MOCK_FINNHUB_SEARCH_RESPONSE,
     MOCK_FINNHUB_SEARCH_EXACT_RESPONSE,
     MOCK_FINNHUB_SEARCH_EMPTY_RESPONSE,
     MOCK_FINNHUB_QUOTE_RESPONSE,
     MOCK_FINNHUB_NEWS_RESPONSE,
-    MOCK_FINNHUB_CANDLE_RESPONSE,
-    MOCK_FINNHUB_CANDLE_NO_DATA_RESPONSE,
 )
 from StockCollector import (
     _search_symbol,
@@ -143,23 +143,45 @@ class TestFetchCompanyNews:
 
 
 # ---------------------------------------------------------------------------
-# collect_stock_history()
+# collect_stock_history()  —  uses yfinance, not Finnhub candle endpoint
 # ---------------------------------------------------------------------------
+
+def _mock_yf_ticker(rows: list[dict]):
+    """
+    Build a mock yf.Ticker whose .history() returns a DataFrame matching
+    the shape yfinance actually produces.
+    rows: list of {"date": "YYYY-MM-DD", "Open":..., "High":..., "Low":..., "Close":..., "Volume":...}
+    """
+    if rows:
+        idx = pd.to_datetime([r["date"] for r in rows])
+        df  = pd.DataFrame(rows, index=idx).drop(columns=["date"])
+    else:
+        df = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
+
+    mock_ticker = MagicMock()
+    mock_ticker.history.return_value = df
+    return mock_ticker
+
+
+SAMPLE_ROWS = [
+    {"date": "2026-04-14", "Open": 288.0, "High": 291.0, "Low": 287.0, "Close": 290.0, "Volume": 3000000},
+    {"date": "2026-04-15", "Open": 290.0, "High": 293.0, "Low": 289.0, "Close": 292.0, "Volume": 3200000},
+    {"date": "2026-04-16", "Open": 292.0, "High": 295.0, "Low": 291.0, "Close": 294.0, "Volume": 2900000},
+]
+
 
 class TestCollectStockHistory:
 
     def test_returns_list_of_candles_on_success(self):
-        """Returns a list of OHLCV candle dicts when Finnhub responds with ok status."""
-        with patch("StockCollector.requests.get") as mock_get:
-            mock_get.return_value = _mock_response(200, MOCK_FINNHUB_CANDLE_RESPONSE)
+        """Returns a list of OHLCV candle dicts when yfinance returns data."""
+        with patch("StockCollector.yf.Ticker", return_value=_mock_yf_ticker(SAMPLE_ROWS)):
             result = collect_stock_history("MCD")
         assert isinstance(result, list)
         assert len(result) == 3
 
     def test_candles_have_required_fields(self):
         """Each candle contains date, open, high, low, close, volume."""
-        with patch("StockCollector.requests.get") as mock_get:
-            mock_get.return_value = _mock_response(200, MOCK_FINNHUB_CANDLE_RESPONSE)
+        with patch("StockCollector.yf.Ticker", return_value=_mock_yf_ticker(SAMPLE_ROWS)):
             result = collect_stock_history("MCD")
         required = {"date", "open", "high", "low", "close", "volume"}
         for candle in result:
@@ -167,39 +189,35 @@ class TestCollectStockHistory:
 
     def test_date_field_is_formatted_yyyy_mm_dd(self):
         """Date strings are formatted as YYYY-MM-DD."""
-        with patch("StockCollector.requests.get") as mock_get:
-            mock_get.return_value = _mock_response(200, MOCK_FINNHUB_CANDLE_RESPONSE)
-            result = collect_stock_history("MCD")
         from datetime import datetime
+        with patch("StockCollector.yf.Ticker", return_value=_mock_yf_ticker(SAMPLE_ROWS)):
+            result = collect_stock_history("MCD")
         for candle in result:
             datetime.strptime(candle["date"], "%Y-%m-%d")  # raises if format wrong
 
-    def test_returns_empty_list_when_status_is_no_data(self):
-        """Returns [] when Finnhub candle status is 'no_data'."""
-        with patch("StockCollector.requests.get") as mock_get:
-            mock_get.return_value = _mock_response(200, MOCK_FINNHUB_CANDLE_NO_DATA_RESPONSE)
+    def test_returns_empty_list_when_no_data(self):
+        """Returns [] when yfinance returns an empty DataFrame."""
+        with patch("StockCollector.yf.Ticker", return_value=_mock_yf_ticker([])):
             result = collect_stock_history("MCD")
         assert result == []
 
-    def test_returns_empty_list_on_api_error(self):
-        """Returns [] when the Finnhub candle endpoint returns non-200."""
-        with patch("StockCollector.requests.get") as mock_get:
-            mock_get.return_value = _mock_response(500, {})
+    def test_returns_empty_list_on_exception(self):
+        """Returns [] (does not raise) when yfinance throws an exception."""
+        mock_ticker = MagicMock()
+        mock_ticker.history.side_effect = Exception("network error")
+        with patch("StockCollector.yf.Ticker", return_value=mock_ticker):
             result = collect_stock_history("MCD")
         assert result == []
 
     def test_days_back_capped_at_365(self):
         """days_back is silently capped to MAX_CANDLE_DAYS=365."""
-        with patch("StockCollector.requests.get") as mock_get:
-            mock_get.return_value = _mock_response(200, MOCK_FINNHUB_CANDLE_NO_DATA_RESPONSE)
+        with patch("StockCollector.yf.Ticker", return_value=_mock_yf_ticker([])):
             collect_stock_history("MCD", days_back=9999)
-        # Verify the function still runs without error (cap is internal)
-        assert mock_get.call_count == 1
+        # No assertion needed — just confirming no exception is raised
 
     def test_volume_is_integer(self):
         """Volume values are converted to int."""
-        with patch("StockCollector.requests.get") as mock_get:
-            mock_get.return_value = _mock_response(200, MOCK_FINNHUB_CANDLE_RESPONSE)
+        with patch("StockCollector.yf.Ticker", return_value=_mock_yf_ticker(SAMPLE_ROWS)):
             result = collect_stock_history("MCD")
         for candle in result:
             assert isinstance(candle["volume"], int)

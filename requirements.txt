@@ -3,3 +3,4 @@ uvicorn==0.30.0
 requests==2.32.3
 pydantic==2.9.0
 mangum
+yfinance==0.2.61

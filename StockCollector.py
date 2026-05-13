@@ -3,6 +3,7 @@ import json
 import argparse
 import os
 from datetime import datetime, timedelta
+import yfinance as yf
 
 API_KEY = os.environ.get("FINNHUB_API_KEY", "")
 BASE_URL = "https://finnhub.io/api/v1"
@@ -65,64 +66,48 @@ def _fetch_company_news(symbol: str, date_from: str, date_to: str) -> list:
 
 def collect_stock_history(symbol: str, days_back: int = MAX_CANDLE_DAYS) -> list:
     """
-    Fetch daily OHLC candle data for a symbol from Finnhub.
-    Returns a list of daily candle dicts sorted oldest → newest, or [] on failure.
+    Fetch daily OHLC candle data for a symbol via Yahoo Finance (yfinance).
 
-    This is intentionally separate from collect_stock_data() — it's used by the
-    /stock endpoint to return price history for the frontend correlation chart.
+    Uses yfinance instead of Finnhub's candle endpoint because Finnhub's free
+    tier restricts historical daily candles. yfinance is free, requires no API
+    key, and provides full OHLCV history.
 
     Args:
         symbol   : Stock ticker (e.g. "MCD")
-        days_back: How many calendar days of history to fetch (max 365 on free tier)
+        days_back: How many calendar days of history to fetch (max 365)
 
     Returns:
-        List of dicts: [{"date": "YYYY-MM-DD", "open": float, "high": float,
-                          "low": float, "close": float, "volume": int}, ...]
+        List of dicts sorted oldest → newest:
+        [{"date": "YYYY-MM-DD", "open": float, "high": float,
+           "low": float, "close": float, "volume": int}, ...]
     """
-    days_back  = min(days_back, MAX_CANDLE_DAYS)
-    date_from  = int((datetime.now() - timedelta(days=days_back)).timestamp())
-    date_to    = int(datetime.now().timestamp())
+    days_back = min(days_back, MAX_CANDLE_DAYS)
+    date_from = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+    date_to   = datetime.now().strftime("%Y-%m-%d")
 
-    response = requests.get(
-        f"{BASE_URL}/stock/candle",
-        params={
-            "symbol":     symbol,
-            "resolution": "D",   # daily candles
-            "from":       date_from,
-            "to":         date_to,
-            "token":      API_KEY,
-        },
-        timeout=10,
-    )
+    try:
+        ticker = yf.Ticker(symbol)
+        hist   = ticker.history(start=date_from, end=date_to, interval="1d")
 
-    if response.status_code != 200:
-        print(f"  Finnhub candle error {response.status_code}: {response.text[:200]}")
+        if hist.empty:
+            print(f"  yfinance: no candle data for {symbol}")
+            return []
+
+        candles = []
+        for date, row in hist.iterrows():
+            candles.append({
+                "date":   date.strftime("%Y-%m-%d"),
+                "open":   round(float(row["Open"]), 2),
+                "high":   round(float(row["High"]), 2),
+                "low":    round(float(row["Low"]), 2),
+                "close":  round(float(row["Close"]), 2),
+                "volume": int(row["Volume"]),
+            })
+        return candles
+
+    except Exception as e:
+        print(f"  yfinance error for {symbol}: {e}")
         return []
-
-    data = response.json()
-    if data.get("s") != "ok":
-        print(f"  Finnhub candle status: {data.get('s')} — no data for {symbol}")
-        return []
-
-    timestamps = data.get("t", [])
-    opens      = data.get("o", [])
-    highs      = data.get("h", [])
-    lows       = data.get("l", [])
-    closes     = data.get("c", [])
-    volumes    = data.get("v", [])
-
-    candles = []
-    for i, ts in enumerate(timestamps):
-        candles.append({
-            "date":   datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d"),
-            "open":   opens[i],
-            "high":   highs[i],
-            "low":    lows[i],
-            "close":  closes[i],
-            "volume": int(volumes[i]) if i < len(volumes) else 0,
-        })
-
-    return candles
 
 
 def collect_stock_data(business_name: str, location: str, category: str, days_back: int = MAX_DAYS_BACK) -> list:

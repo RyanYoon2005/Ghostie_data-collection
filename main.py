@@ -180,11 +180,22 @@ def stock(business_name: str, days_back: int = 365):
             detail=f"No stock ticker found for '{business_name}'. It may not be publicly listed."
         )
 
-    quote   = _fetch_quote(symbol)
+    quote = _fetch_quote(symbol)
+
+    # Validate that the matched symbol actually has live market data.
+    # Finnhub's search can return obscure foreign exchange listings for
+    # private companies (e.g. Subway → 511024.BO). If the quote has no
+    # current price the symbol is useless — treat it as not found.
+    if not quote or not quote.get("c"):
+        raise HTTPException(
+            status_code=404,
+            detail=f"'{business_name}' does not appear to be publicly listed (no market data for symbol '{symbol}')."
+        )
+
     candles = collect_stock_history(symbol, days_back=days_back)
 
     change_pct = None
-    if quote and quote.get("c") and quote.get("pc"):
+    if quote.get("c") and quote.get("pc"):
         change_pct = round(((quote["c"] - quote["pc"]) / quote["pc"]) * 100, 2)
 
     return {

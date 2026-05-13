@@ -493,6 +493,13 @@ class TestStockEndpoint:
             response = client.get("/stock?business_name=Unknown+Cafe+XYZ")
         assert response.status_code == 404
 
+    def test_returns_404_when_symbol_found_but_no_market_data(self):
+        """Returns 404 when a symbol is found but the quote has no price (e.g. private company)."""
+        with patch("main._search_symbol", return_value="511024.BO"), \
+             patch("main._fetch_quote", return_value={"c": None, "o": None, "h": None, "l": None, "pc": None}):
+            response = client.get("/stock?business_name=Subway")
+        assert response.status_code == 404
+
     def test_returns_400_when_business_name_empty(self):
         """Returns 400 when business_name query param is blank."""
         response = client.get("/stock?business_name=")
