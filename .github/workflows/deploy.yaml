@@ -102,3 +102,4 @@ jobs:
           CharlieApiUrl=${{ secrets.CHARLIE_API_URL }}
           CharlieApiEmail=${{ secrets.CHARLIE_API_EMAIL }}
           CharlieApiPassword=${{ secrets.CHARLIE_API_PASSWORD }}
+          ScraperApiKey=${{ secrets.SCRAPER_API_KEY }}
