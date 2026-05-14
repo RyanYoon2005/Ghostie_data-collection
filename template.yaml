@@ -23,6 +23,9 @@ Parameters:
     Type: String
     Default: ""
     NoEcho: true
+  ScraperApiKey:
+    Type: String
+    NoEcho: true
 
 Resources:
   DataCollectionFunction:
@@ -41,6 +44,7 @@ Resources:
           CHARLIE_API_URL: !Ref CharlieApiUrl
           CHARLIE_API_EMAIL: !Ref CharlieApiEmail
           CHARLIE_API_PASSWORD: !Ref CharlieApiPassword
+          SCRAPER_API_KEY: !Ref ScraperApiKey
       Events:
         DailyRefresh:
             Type: ScheduleV2
