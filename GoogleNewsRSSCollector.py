@@ -2,7 +2,7 @@ import requests
 import json
 import argparse
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import timezone
 from email.utils import parsedate_to_datetime
 
 GNEWS_RSS_URL = "https://news.google.com/rss/search"
