@@ -14,6 +14,7 @@ from NewsCollector import collect_news, collect_news_reviews
 from ReviewCollector import collect_reviews
 from RedditCollector import collect_reddit_posts
 from StockCollector import _search_symbol, _fetch_quote, collect_stock_history
+from GoogleNewsRSSCollector import collect_google_news
 
 # ── Local storage folder ─────────────────────────────────────────────────────
 # Results are saved here until S3 is ready.
@@ -116,6 +117,7 @@ class CollectResponse(BaseModel):
     news_review_count: int
     review_count: int
     reddit_count: int
+    google_news_count: int
     score_only_count: int
     saved_to: str        # local filepath (will become S3 key later)
     data: list
@@ -245,6 +247,7 @@ def collect(request: CollectRequest):
     news_review_results  = []
     review_results       = []
     reddit_results       = []
+    google_news_results  = []
     errors               = []
 
     try:
@@ -279,8 +282,16 @@ def collect(request: CollectRequest):
         errors.append(f"Charlie API error: {str(e)}")
         print(f"  Charlie API failed: {e}")
 
+    try:
+        print("  Fetching Google News RSS...")
+        google_news_results = collect_google_news(business_name, location, category)
+        print(f"  Got {len(google_news_results)} Google News articles")
+    except Exception as e:
+        errors.append(f"Google News RSS error: {str(e)}")
+        print(f"  Google News RSS failed: {e}")
+
     # ── Combine results ──────────────────────────────────────────────────────
-    combined = news_results + news_review_results + review_results + reddit_results
+    combined = news_results + news_review_results + review_results + reddit_results + google_news_results
 
     if not combined:
         raise HTTPException(
@@ -300,8 +311,9 @@ def collect(request: CollectRequest):
         "news_count":       len(news_results),
         "news_review_count": len(news_review_results),
         "review_count":     len(review_results),
-        "reddit_count":     len(reddit_results),
-        "score_only_count": score_only_count,
+        "reddit_count":      len(reddit_results),
+        "google_news_count": len(google_news_results),
+        "score_only_count":  score_only_count,
         "data":             combined,
     }
 
