@@ -50,23 +50,13 @@ def collect_scraper_news(business_name: str, location: str, category: str):
         print("  No Google News results returned.")
         return []
 
-    # ── Relevance filter: keep only articles mentioning the business name ──
-    def is_relevant(article: dict) -> bool:
-        title   = article.get("title") or ""
-        snippet = article.get("snippet") or ""
-        combined = (title + " " + snippet).lower()
-        return business_name.lower() in combined
-
-    relevant = [a for a in raw_results if is_relevant(a)]
-    print(f"  After relevance filter: {len(relevant)} kept, {len(raw_results) - len(relevant)} removed\n")
-
-    if not relevant:
-        print("  No relevant Google News articles found.")
-        return []
+    # No relevance filter here — the Google News query already uses a quoted
+    # business name so results are targeted. Unlike NewsAPI (100 loose results),
+    # we trust Google News to return on-topic articles.
 
     # ── Standardize into our data model ──
     standardized = []
-    for article in relevant:
+    for article in raw_results:
         source_name = article.get("source", {}).get("name", "Unknown") if isinstance(article.get("source"), dict) else article.get("source", "Unknown")
         standardized.append({
             "id":        f"gnews_{abs(hash(article.get('link', article.get('title', ''))))}",
