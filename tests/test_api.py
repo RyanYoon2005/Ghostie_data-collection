@@ -94,6 +94,20 @@ MOCK_REDDIT = [
     }
 ]
 
+MOCK_GOOGLE_NEWS = [
+    {
+        "id": "gnews_rss_abc123",
+        "source": "google_news_rss",
+        "publisher": "Time Out",
+        "timestamp": "2026-05-01T08:00:00+00:00",
+        "query": {"business_name": "Subway", "location": "Sydney", "category": "restaurant"},
+        "title": "Best Subway sandwiches ranked",
+        "body": "A look at the best options at Subway restaurants across Sydney.",
+        "url": "https://www.timeout.com/sydney/restaurants/subway",
+        "metadata": {"author": ""},
+    }
+]
+
 
 def _mock_collect_success(*args, **kwargs):
     """Patch that simulates all collectors returning data."""
@@ -101,13 +115,14 @@ def _mock_collect_success(*args, **kwargs):
 
 
 def _patch_all_collectors(news=MOCK_NEWS, reviews=MOCK_NEWS_REVIEWS, maps=MOCK_REVIEWS,
-                           reddit=MOCK_REDDIT, retrieval_ok=True):
+                           reddit=MOCK_REDDIT, google_news=MOCK_GOOGLE_NEWS, retrieval_ok=True):
     """Context-manager stack: patches collectors + Retrieval API post."""
     patches = [
         patch("main.collect_news", return_value=news),
         patch("main.collect_news_reviews", return_value=reviews),
         patch("main.collect_reviews", return_value=maps),
         patch("main.collect_reddit_posts", return_value=reddit),
+        patch("main.collect_google_news", return_value=google_news),
     ]
     if retrieval_ok:
         mock_post = MagicMock()
@@ -286,7 +301,7 @@ class TestCollectEndpointSuccess:
         finally:
             patch.stopall()
         body = response.json()
-        expected_total = len(MOCK_NEWS) + len(MOCK_NEWS_REVIEWS) + len(MOCK_REVIEWS) + len(MOCK_REDDIT)
+        expected_total = len(MOCK_NEWS) + len(MOCK_NEWS_REVIEWS) + len(MOCK_REVIEWS) + len(MOCK_REDDIT) + len(MOCK_GOOGLE_NEWS)
         assert body["total_results"] == expected_total
 
     def test_score_only_count_correct(self):
@@ -328,11 +343,11 @@ class TestCollectEndpointSuccess:
             patch.stopall()
         data = response.json()["data"]
         assert isinstance(data, list)
-        assert len(data) == len(MOCK_NEWS) + len(MOCK_NEWS_REVIEWS) + len(MOCK_REVIEWS) + len(MOCK_REDDIT)
+        assert len(data) == len(MOCK_NEWS) + len(MOCK_NEWS_REVIEWS) + len(MOCK_REVIEWS) + len(MOCK_REDDIT) + len(MOCK_GOOGLE_NEWS)
 
     def test_returns_404_when_all_sources_empty(self):
         """Returns 404 when no data is collected from any source."""
-        for p in _patch_all_collectors(news=[], reviews=[], maps=[], reddit=[]):
+        for p in _patch_all_collectors(news=[], reviews=[], maps=[], reddit=[], google_news=[]):
             p.start()
         try:
             response = client.post(
