@@ -1,9 +1,17 @@
+import re
 import requests
 import json
 import argparse
 import xml.etree.ElementTree as ET
 from datetime import timezone
 from email.utils import parsedate_to_datetime
+
+
+def _strip_html(text: str) -> str:
+    """Remove HTML tags and decode common entities from a string."""
+    text = re.sub(r"<[^>]+>", "", text)
+    text = text.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"')
+    return text.strip()
 
 GNEWS_RSS_URL = "https://news.google.com/rss/search"
 
@@ -66,11 +74,11 @@ def collect_google_news(business_name: str, location: str, category: str, max_re
     # ── Standardize into our data model ──
     standardized = []
     for item in items[:max_results]:
-        title   = item.findtext("title") or ""
-        link    = item.findtext("link") or ""
-        pub_date = item.findtext("pubDate") or ""
-        source  = item.findtext("source") or ""
-        description = item.findtext("description") or ""
+        title       = _strip_html(item.findtext("title") or "")
+        link        = item.findtext("link") or ""
+        pub_date    = item.findtext("pubDate") or ""
+        source      = item.findtext("source") or ""
+        description = _strip_html(item.findtext("description") or "")
 
         # Parse pubDate into ISO format
         timestamp = ""

@@ -49,10 +49,11 @@ def collect_reddit_posts(business_name: str, location: str, category: str, limit
 
     headers = {"Authorization": f"Bearer {token}"}
     query = business_name
+    subreddit = business_name.lower().replace(" ", "")
 
     response = requests.get(
         f"{CHARLIE_API_URL}/v1/post/search",
-        params={"query": query, "subreddit": business_name, "limit": limit},
+        params={"query": query, "subreddit": subreddit, "limit": limit},
         headers=headers,
         timeout=30,
     )
