@@ -10,7 +10,6 @@ os.environ.setdefault("NEWSAPI_KEY", "test-key")
 os.environ.setdefault("SERP_API_KEY", "test-key")
 os.environ.setdefault("FINNHUB_API_KEY", "test-key")
 os.environ.setdefault("RETRIEVAL_API_BASE", "https://fake-api.example.com")
-os.environ.setdefault("SCRAPER_API_KEY", "test-key")
 
 # Ensure project root is on the path so tests can import source modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
