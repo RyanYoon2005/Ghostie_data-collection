@@ -348,8 +348,8 @@ class TestCollectAsxAnnouncements:
 
         assert results[0]["id"].startswith("asx_CBA_")
 
-    def test_url_built_from_relative_url_when_no_direct_url(self):
-        ann = {**MOCK_ASX_ANNOUNCEMENT, "url": "", "relative_url": "/asxpdf/ann.pdf"}
+    def test_url_constructed_from_document_key_when_no_direct_url(self):
+        ann = {**MOCK_ASX_ANNOUNCEMENT, "url": ""}  # no direct URL, but has id (ann_002)
         markit_fail = MagicMock()
         markit_fail.status_code = 503
 
@@ -360,7 +360,7 @@ class TestCollectAsxAnnouncements:
         with patch("ASXCollector.requests.get", side_effect=[markit_fail, asx_resp]):
             results = collect_asx_announcements("Commonwealth Bank", "Sydney", "Finance")
 
-        assert results[0]["url"] == "https://www.asx.com.au/asxpdf/ann.pdf"
+        assert results[0]["url"] == "https://www.asx.com.au/asxpdf/20260415/pdf/ann_002.pdf"
 
     def test_ticker_in_metadata(self):
         markit_resp = MagicMock()
