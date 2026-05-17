@@ -269,11 +269,16 @@ def collect_asx_announcements(
             else f"asx_{ticker}_{abs(hash(title + document_date))}"
         )
 
-        # Build the full announcement URL
+        # Build the full announcement URL.
+        # Markit doesn't return direct PDF URLs, so construct from documentKey.
+        # Format: https://www.asx.com.au/asxpdf/{YYYYMMDD}/pdf/{documentKey}.pdf
         url = ann.get("url") or ""
+        if not url and ann_id:
+            date_str = document_date.replace("-", "")  # "2026-05-14" → "20260514"
+            url = f"https://www.asx.com.au/asxpdf/{date_str}/pdf/{ann_id}.pdf"
         if not url:
-            relative = ann.get("relative_url", "")
-            url = f"{_ASX_BASE_URL}{relative}" if relative else ""
+            # Last resort: link to company's announcements page on ASX
+            url = f"https://www.asx.com.au/markets/company/{ticker.lower()}/announcements"
 
         items.append({
             "id": item_id,
