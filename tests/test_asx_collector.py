@@ -164,19 +164,21 @@ class TestFindAsxTicker:
                 assert result is None
 
     def test_yfinance_fallback_resolves_ticker(self):
-        finnhub_resp = MagicMock()
-        finnhub_resp.status_code = 200
-        finnhub_resp.json.return_value = {"result": []}
+        # Finnhub loop makes 2 calls (exchange=AU, then global) — both return empty
+        finnhub_empty = MagicMock()
+        finnhub_empty.status_code = 200
+        finnhub_empty.json.return_value = {"result": []}
 
         mock_quote = {"symbol": "XRO.AX"}
         mock_search = MagicMock()
         mock_search.quotes = [mock_quote]
 
+        # Third call: _verify_asx_ticker hits Markit for XRO
         markit_resp = MagicMock()
         markit_resp.status_code = 200
         markit_resp.json.return_value = {"data": {"items": [MOCK_MARKIT_ANNOUNCEMENT]}}
 
-        with patch("ASXCollector.requests.get", side_effect=[finnhub_resp, markit_resp]):
+        with patch("ASXCollector.requests.get", side_effect=[finnhub_empty, finnhub_empty, markit_resp]):
             with patch("ASXCollector.yf.Search", return_value=mock_search):
                 result = _find_asx_ticker("Xero")
                 assert result == "XRO"
