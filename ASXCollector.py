@@ -22,7 +22,7 @@ FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")
 _FINNHUB_SEARCH_URL = "https://finnhub.io/api/v1/search"
 
 # Primary: Markit Digital ASX API — works from cloud/Lambda environments
-_MARKIT_ANNOUNCEMENTS_URL = "https://asx.api.markitdigital.com/asx-research/1.0/companies/announcements"
+_MARKIT_ANNOUNCEMENTS_URL = "https://asx.api.markitdigital.com/asx-research/1.0/companies/{ticker}/announcements"
 # Fallback: direct ASX website API
 _ASX_ANNOUNCEMENTS_URL = "https://www.asx.com.au/asx/1/company/{ticker}/announcements"
 _ASX_BASE_URL = "https://www.asx.com.au"
@@ -88,8 +88,8 @@ def _verify_asx_ticker(asx_code: str) -> bool:
     # Try Markit Digital first (works from Lambda)
     try:
         resp = requests.get(
-            _MARKIT_ANNOUNCEMENTS_URL,
-            params={"companyCode": asx_code, "count": 1},
+            _MARKIT_ANNOUNCEMENTS_URL.format(ticker=asx_code),
+            params={"count": 1},
             timeout=4,
         )
         if resp.status_code == 200:
@@ -214,18 +214,13 @@ def collect_asx_announcements(
     # Try Markit Digital API first (works from Lambda/cloud environments)
     try:
         resp = requests.get(
-            _MARKIT_ANNOUNCEMENTS_URL,
-            params={"companyCode": ticker, "count": count},
+            _MARKIT_ANNOUNCEMENTS_URL.format(ticker=ticker),
+            params={"count": count},
             timeout=5,
         )
         if resp.status_code == 200:
             body = resp.json()
-            # Markit wraps items under data.items or items depending on version
-            announcements = (
-                body.get("data", {}).get("items")
-                or body.get("items")
-                or []
-            )
+            announcements = body.get("data", {}).get("items") or []
             if announcements:
                 print(f"  Fetched {len(announcements)} announcements via Markit API")
     except Exception as exc:
@@ -255,17 +250,17 @@ def collect_asx_announcements(
 
     items = []
     for ann in announcements:
-        # Support both ASX API field names and Markit Digital field names
-        ann_id = ann.get("id", "") or ann.get("id", "")
-        title = ann.get("header") or ann.get("headline") or ann.get("title") or ""
+        # Support both Markit Digital and direct ASX API field names
+        ann_id = ann.get("documentKey") or ann.get("id", "")
+        title = ann.get("headline") or ann.get("header") or ann.get("title") or ""
         timestamp = (
-            ann.get("document_release_date")
-            or ann.get("dateTime")
+            ann.get("date")
+            or ann.get("document_release_date")
             or ann.get("document_date")
             or datetime.utcnow().isoformat()
         )
-        market_sensitive = ann.get("market_sensitive") or ann.get("isMarketSensitive") or False
-        document_date = ann.get("document_date") or ann.get("dateTime", "")[:10] if ann.get("dateTime") else ""
+        market_sensitive = ann.get("isPriceSensitive") or ann.get("market_sensitive") or False
+        document_date = timestamp[:10] if timestamp else ""
 
         # Build a stable unique ID
         item_id = (
@@ -275,7 +270,7 @@ def collect_asx_announcements(
         )
 
         # Build the full announcement URL
-        url = ann.get("url") or ann.get("pdfUrl") or ""
+        url = ann.get("url") or ""
         if not url:
             relative = ann.get("relative_url", "")
             url = f"{_ASX_BASE_URL}{relative}" if relative else ""
@@ -298,8 +293,7 @@ def collect_asx_announcements(
                 "ticker": ticker,
                 "market_sensitive": market_sensitive,
                 "document_date": document_date,
-                "number_of_pages": ann.get("number_of_pages") or ann.get("numberOfPages"),
-                "size": ann.get("size", ""),
+                "size": ann.get("fileSize", ""),
             },
         })
 

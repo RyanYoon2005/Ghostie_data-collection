@@ -16,12 +16,12 @@ from ASXCollector import (
 # ---------------------------------------------------------------------------
 
 MOCK_MARKIT_ANNOUNCEMENT = {
-    "id": "ann_001",
+    "documentKey": "2924-ann_001",
     "headline": "CBA Reports Record Half-Year Profit",
-    "dateTime": "2026-02-11T08:00:00+00:00",
-    "isMarketSensitive": True,
-    "pdfUrl": "https://asx.api.markitdigital.com/pdf/ann_001.pdf",
-    "numberOfPages": 5,
+    "date": "2026-02-11T08:00:00.000Z",
+    "isPriceSensitive": True,
+    "url": "",
+    "fileSize": "564KB",
 }
 
 MOCK_ASX_ANNOUNCEMENT = {
@@ -52,7 +52,8 @@ class TestVerifyAsxTicker:
     def test_returns_true_when_markit_returns_top_level_items(self):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.json.return_value = {"items": [MOCK_MARKIT_ANNOUNCEMENT]}
+        # Markit always wraps under data.items — top-level items is legacy fallback
+        mock_resp.json.return_value = {"data": {"items": [MOCK_MARKIT_ANNOUNCEMENT]}}
         with patch("ASXCollector.requests.get", return_value=mock_resp):
             assert _verify_asx_ticker("CBA") is True
 
@@ -334,10 +335,10 @@ class TestCollectAsxAnnouncements:
         with patch("ASXCollector.requests.get", return_value=markit_resp):
             results = collect_asx_announcements("Commonwealth Bank", "Sydney", "Finance")
 
-        assert results[0]["id"] == "asx_CBA_ann_001"
+        assert results[0]["id"] == "asx_CBA_2924-ann_001"
 
     def test_id_uses_hash_when_no_ann_id(self):
-        ann_no_id = {**MOCK_MARKIT_ANNOUNCEMENT, "id": ""}
+        ann_no_id = {**MOCK_MARKIT_ANNOUNCEMENT, "documentKey": ""}
         markit_resp = MagicMock()
         markit_resp.status_code = 200
         markit_resp.json.return_value = {"data": {"items": [ann_no_id]}}
