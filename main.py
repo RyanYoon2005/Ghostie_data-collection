@@ -15,6 +15,7 @@ from ReviewCollector import collect_reviews
 from RedditCollector import collect_reddit_posts
 from StockCollector import _search_symbol, _fetch_quote, collect_stock_history
 from GoogleNewsRSSCollector import collect_google_news
+from ASXCollector import collect_asx_announcements
 
 # ── Local storage folder ─────────────────────────────────────────────────────
 # Results are saved here until S3 is ready.
@@ -118,6 +119,7 @@ class CollectResponse(BaseModel):
     review_count: int
     reddit_count: int
     google_news_count: int
+    asx_count: int
     score_only_count: int
     saved_to: str        # local filepath (will become S3 key later)
     data: list
@@ -248,6 +250,7 @@ def collect(request: CollectRequest):
     review_results       = []
     reddit_results       = []
     google_news_results  = []
+    asx_results          = []
     errors               = []
 
     try:
@@ -290,8 +293,16 @@ def collect(request: CollectRequest):
         errors.append(f"Google News RSS error: {str(e)}")
         print(f"  Google News RSS failed: {e}")
 
+    try:
+        print("  Fetching ASX announcements...")
+        asx_results = collect_asx_announcements(business_name, location, category)
+        print(f"  Got {len(asx_results)} ASX announcements")
+    except Exception as e:
+        errors.append(f"ASX announcements error: {str(e)}")
+        print(f"  ASX announcements failed: {e}")
+
     # ── Combine results ──────────────────────────────────────────────────────
-    combined = news_results + news_review_results + review_results + reddit_results + google_news_results
+    combined = news_results + news_review_results + review_results + reddit_results + google_news_results + asx_results
 
     if not combined:
         raise HTTPException(
@@ -313,6 +324,7 @@ def collect(request: CollectRequest):
         "review_count":     len(review_results),
         "reddit_count":      len(reddit_results),
         "google_news_count": len(google_news_results),
+        "asx_count":         len(asx_results),
         "score_only_count":  score_only_count,
         "data":             combined,
     }
