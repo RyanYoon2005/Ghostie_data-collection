@@ -4,8 +4,6 @@ All external HTTP calls are mocked so no real API keys are needed.
 """
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 import ASXCollector
 from ASXCollector import (
     _find_asx_ticker,
