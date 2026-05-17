@@ -270,7 +270,7 @@ def collect_asx_announcements(
         )
 
         # Markit doesn't return direct PDF URLs — link to the company's announcements page.
-        url = ann.get("url") or f"https://www.asx.com.au/markets/company/{ticker.lower()}/announcements"
+        url = ann.get("url") or f"https://www.asx.com.au/markets/company/{ticker}"
 
         items.append({
             "id": item_id,

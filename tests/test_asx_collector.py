@@ -360,7 +360,7 @@ class TestCollectAsxAnnouncements:
         with patch("ASXCollector.requests.get", side_effect=[markit_fail, asx_resp]):
             results = collect_asx_announcements("Commonwealth Bank", "Sydney", "Finance")
 
-        assert results[0]["url"] == "https://www.asx.com.au/markets/company/cba/announcements"
+        assert results[0]["url"] == "https://www.asx.com.au/markets/company/CBA"
 
     def test_ticker_in_metadata(self):
         markit_resp = MagicMock()
