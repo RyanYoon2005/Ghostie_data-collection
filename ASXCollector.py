@@ -90,7 +90,7 @@ def _verify_asx_ticker(asx_code: str) -> bool:
         resp = requests.get(
             _MARKIT_ANNOUNCEMENTS_URL,
             params={"companyCode": asx_code, "count": 1},
-            timeout=8,
+            timeout=4,
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -103,7 +103,7 @@ def _verify_asx_ticker(asx_code: str) -> bool:
             _ASX_ANNOUNCEMENTS_URL.format(ticker=asx_code),
             params={"count": 1},
             headers=_ASX_HEADERS,
-            timeout=8,
+            timeout=4,
         )
         return resp.status_code == 200 and bool(resp.json().get("data"))
     except Exception:
@@ -141,7 +141,7 @@ def _find_asx_ticker(business_name: str) -> str | None:
         {"q": business_name, "token": FINNHUB_API_KEY},
     ]:
         try:
-            resp = requests.get(_FINNHUB_SEARCH_URL, params=params, timeout=10)
+            resp = requests.get(_FINNHUB_SEARCH_URL, params=params, timeout=5)
             if resp.status_code == 200:
                 results = resp.json().get("result", [])
                 # Prefer symbols with .AX suffix (ASX-listed)
@@ -216,7 +216,7 @@ def collect_asx_announcements(
         resp = requests.get(
             _MARKIT_ANNOUNCEMENTS_URL,
             params={"companyCode": ticker, "count": count},
-            timeout=10,
+            timeout=5,
         )
         if resp.status_code == 200:
             body = resp.json()
@@ -238,7 +238,7 @@ def collect_asx_announcements(
                 _ASX_ANNOUNCEMENTS_URL.format(ticker=ticker),
                 params={"count": count},
                 headers=_ASX_HEADERS,
-                timeout=10,
+                timeout=5,
             )
             if resp.status_code == 200:
                 announcements = resp.json().get("data", [])
