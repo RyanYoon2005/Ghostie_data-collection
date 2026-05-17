@@ -16,11 +16,56 @@ import os
 from datetime import datetime
 
 import requests
+import yfinance as yf
 
 FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")
 _FINNHUB_SEARCH_URL = "https://finnhub.io/api/v1/search"
 _ASX_ANNOUNCEMENTS_URL = "https://www.asx.com.au/asx/1/company/{ticker}/announcements"
 _ASX_BASE_URL = "https://www.asx.com.au"
+
+# Hardcoded map for major ASX companies where Finnhub search may be unreliable.
+# Keys are lowercase business name substrings.
+_KNOWN_ASX_TICKERS: dict[str, str] = {
+    "commonwealth bank": "CBA",
+    "westpac": "WBC",
+    "national australia bank": "NAB",
+    "anz bank": "ANZ",
+    "anz": "ANZ",
+    "bhp": "BHP",
+    "rio tinto": "RIO",
+    "woolworths": "WOW",
+    "wesfarmers": "WES",
+    "telstra": "TLS",
+    "csl": "CSL",
+    "macquarie": "MQG",
+    "origin energy": "ORG",
+    "qantas": "QAN",
+    "fortescue": "FMG",
+    "woodside": "WDS",
+    "santos": "STO",
+    "transurban": "TCL",
+    "scentre": "SCG",
+    "goodman": "GMG",
+    "amp": "AMP",
+    "suncorp": "SUN",
+    "insurance australia": "IAG",
+    "medibank": "MPL",
+    "ramsay": "RHC",
+    "cochlear": "COH",
+    "resmed": "RMD",
+    "james hardie": "JHX",
+    "seek": "SEK",
+    "car group": "CAR",
+    "carsales": "CAR",
+    "realestate": "REA",
+    "rea group": "REA",
+    "domain": "DHG",
+    "afterpay": "APT",
+    "zip": "ZIP",
+    "nab": "NAB",
+    "optiver": "OPT",
+    "coles": "COL",
+}
 
 # Headers required by the ASX public API — without a User-Agent it returns 403.
 _ASX_HEADERS = {
@@ -34,64 +79,89 @@ _ASX_HEADERS = {
 }
 
 
+def _verify_asx_ticker(asx_code: str) -> bool:
+    """Return True if the ASX API confirms this ticker has announcements."""
+    try:
+        resp = requests.get(
+            _ASX_ANNOUNCEMENTS_URL.format(ticker=asx_code),
+            params={"count": 1},
+            headers=_ASX_HEADERS,
+            timeout=8,
+        )
+        return resp.status_code == 200 and bool(resp.json().get("data"))
+    except Exception:
+        return False
+
+
 def _find_asx_ticker(business_name: str) -> str | None:
     """
     Resolve a business name to its ASX ticker code.
 
-    Uses Finnhub symbol search to get candidate tickers, then verifies each
-    against the live ASX announcements API. Returns the first ticker that the
-    ASX API confirms as valid, or None if the company is not ASX-listed.
+    Strategy (in order):
+    1. Check the hardcoded known-ticker map for major ASX companies.
+    2. Use Finnhub symbol search (Australian exchange results preferred).
+    3. Verify every candidate against the live ASX announcements API.
 
-    Args:
-        business_name: Plain-English company name (e.g. "Origin Energy")
-
-    Returns:
-        ASX ticker string (e.g. "ORG"), or None.
+    Returns the first confirmed ticker, or None if not ASX-listed.
     """
+    name_lower = business_name.lower().strip()
+
+    # Step 1 — check hardcoded map (substring match so "Commonwealth Bank of Australia" → CBA)
+    for key, ticker in _KNOWN_ASX_TICKERS.items():
+        if key in name_lower or name_lower in key:
+            print(f"  Matched known ASX ticker '{ticker}' for '{business_name}'")
+            return ticker
+
+    # Step 2 — Finnhub search (requires API key)
     if not FINNHUB_API_KEY:
-        print("  FINNHUB_API_KEY not set — skipping ASX ticker resolution")
+        print("  FINNHUB_API_KEY not set — skipping Finnhub ASX search")
         return None
 
-    # Step 1 — get candidates from Finnhub
-    try:
-        resp = requests.get(
-            _FINNHUB_SEARCH_URL,
-            params={"q": business_name, "token": FINNHUB_API_KEY},
-            timeout=10,
-        )
-        if resp.status_code != 200:
-            print(f"  Finnhub search returned {resp.status_code} — skipping ASX lookup")
-            return None
-        candidates = resp.json().get("result", [])
-    except Exception as exc:
-        print(f"  Finnhub search error: {exc} — skipping ASX lookup")
-        return None
-
-    if not candidates:
-        return None
-
-    # Step 2 — verify each candidate against the ASX API (try up to 5)
-    for entry in candidates[:5]:
-        raw_symbol = entry.get("displaySymbol") or entry.get("symbol", "")
-        # Strip exchange suffix: "ORG.AX" → "ORG", "CBA" → "CBA"
-        asx_code = raw_symbol.split(".")[0].upper().strip()
-
-        # ASX codes are 1–6 uppercase alpha characters (occasionally include digits)
-        if not asx_code or len(asx_code) > 6 or not asx_code.replace("0", "").isalpha():
+    # Try with exchange=AU filter first for more accurate Australian results
+    candidates: list = []
+    for params in [
+        {"q": business_name, "exchange": "AU", "token": FINNHUB_API_KEY},
+        {"q": business_name, "token": FINNHUB_API_KEY},
+    ]:
+        try:
+            resp = requests.get(_FINNHUB_SEARCH_URL, params=params, timeout=10)
+            if resp.status_code == 200:
+                results = resp.json().get("result", [])
+                # Prefer symbols with .AX suffix (ASX-listed)
+                ax_results = [r for r in results if ".AX" in r.get("displaySymbol", "") or ".AX" in r.get("symbol", "")]
+                candidates = ax_results if ax_results else results
+                if candidates:
+                    break
+        except Exception as exc:
+            print(f"  Finnhub search error: {exc}")
             continue
 
-        try:
-            verify = requests.get(
-                _ASX_ANNOUNCEMENTS_URL.format(ticker=asx_code),
-                params={"count": 1},
-                headers=_ASX_HEADERS,
-                timeout=8,
-            )
-            if verify.status_code == 200 and verify.json().get("data"):
-                print(f"  Confirmed ASX ticker: {asx_code}")
-                return asx_code
-        except Exception:
-            continue  # Try next candidate
+    # Step 3 — verify Finnhub candidates against the ASX API (try up to 5)
+    for entry in candidates[:5]:
+        raw_symbol = entry.get("displaySymbol") or entry.get("symbol", "")
+        # Strip exchange suffix: "CBA.AX" → "CBA", "ORG" → "ORG"
+        asx_code = raw_symbol.split(".")[0].upper().strip()
+
+        # ASX codes: 1–6 chars, letters only (or letters + digits for some ETFs)
+        if not asx_code or len(asx_code) > 6 or not asx_code.isalnum():
+            continue
+
+        if _verify_asx_ticker(asx_code):
+            print(f"  Confirmed ASX ticker via Finnhub: {asx_code}")
+            return asx_code
+
+    # Step 4 — yfinance fallback: search using Yahoo Finance which natively supports .AX
+    try:
+        search = yf.Search(business_name, max_results=5)
+        for quote in search.quotes:
+            symbol = quote.get("symbol", "")
+            if symbol.endswith(".AX"):
+                asx_code = symbol[:-3]  # strip ".AX"
+                if _verify_asx_ticker(asx_code):
+                    print(f"  Confirmed ASX ticker via yfinance: {asx_code}")
+                    return asx_code
+    except Exception as exc:
+        print(f"  yfinance search error: {exc}")
 
     return None
 
