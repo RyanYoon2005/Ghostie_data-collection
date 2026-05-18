@@ -64,7 +64,7 @@ def post_to_retrieval_api(payload: dict) -> None:
     }
 
     try:
-        response = http_requests.post(RETRIEVAL_API_URL, json=body, timeout=10)
+        response = http_requests.post(RETRIEVAL_API_URL, json=body, timeout=25)
         if response.status_code < 200 or response.status_code >= 300:
             logging.warning(
                 "Retrieval API /store returned %s: %s",
