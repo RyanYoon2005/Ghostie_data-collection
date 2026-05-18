@@ -63,18 +63,25 @@ def post_to_retrieval_api(payload: dict) -> None:
         "data":          payload["data"],
     }
 
+    print(f"  [store] Posting to Retrieval API: {RETRIEVAL_API_URL}")
+    print(f"  [store] Payload summary: business={payload['business_name']!r}, "
+          f"location={payload['location']!r}, items={len(payload['data'])}")
+
     try:
         response = http_requests.post(RETRIEVAL_API_URL, json=body, timeout=25)
+        print(f"  [store] Retrieval API responded: {response.status_code}")
         if response.status_code < 200 or response.status_code >= 300:
             logging.warning(
                 "Retrieval API /store returned %s: %s",
                 response.status_code,
                 response.text[:200],
             )
+            print(f"  [store] ERROR body: {response.text[:300]}")
         else:
-            print(f"  Posted to Retrieval API: {response.status_code}")
+            print(f"  [store] Successfully stored {len(payload['data'])} items")
     except Exception as exc:
         logging.warning("Failed to POST to Retrieval API: %s", exc)
+        print(f"  [store] EXCEPTION posting to Retrieval API: {type(exc).__name__}: {exc}")
 
 
 # ── App ──────────────────────────────────────────────────────────────────────
