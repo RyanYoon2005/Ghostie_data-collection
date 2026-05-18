@@ -2,17 +2,22 @@
 ASXCollector.py — Fetch official ASX announcements for listed Australian companies.
 
 Strategy:
-  1. Use Finnhub symbol search to find candidate ticker symbols for the business.
-  2. For each candidate, strip any exchange suffix (e.g. "ORG.AX" → "ORG") and
-     verify it exists on ASX by calling the public ASX announcements API.
-  3. If a valid ASX ticker is confirmed, fetch the latest announcements and
-     normalise them into the standard Ghostie item format.
+  1. Check the hardcoded map for major ASX companies where naming is ambiguous
+     (e.g. "Macquarie" → MQG not MBL, "ANZ" → ANZ not a substring match).
+  2. Search the bundled ASXListedCompanies.csv (all ~2,200 listed companies)
+     using exact normalized name matching — zero network calls, <1 ms.
+  3. Use Finnhub symbol search as a fallback for companies not in the CSV
+     (e.g. very recent listings).
+  4. yfinance as a last resort.
+  5. Verify every candidate from steps 3–4 against the live ASX API.
 
 Returns [] silently for companies that are not ASX-listed, or when APIs are
 unavailable — the collect pipeline should never fail because of this module.
 """
 
+import csv
 import os
+import re
 from datetime import datetime
 
 import requests
@@ -27,7 +32,8 @@ _MARKIT_ANNOUNCEMENTS_URL = "https://asx.api.markitdigital.com/asx-research/1.0/
 _ASX_ANNOUNCEMENTS_URL = "https://www.asx.com.au/asx/1/company/{ticker}/announcements"
 _ASX_BASE_URL = "https://www.asx.com.au"
 
-# Hardcoded map for major ASX companies where Finnhub search may be unreliable.
+# Hardcoded map for major ASX companies where CSV substring matching would be
+# ambiguous (e.g. "Macquarie" matches both MBL and MQG — we want MQG).
 # Keys are lowercase business name substrings.
 _KNOWN_ASX_TICKERS: dict[str, str] = {
     "commonwealth bank": "CBA",
@@ -67,7 +73,6 @@ _KNOWN_ASX_TICKERS: dict[str, str] = {
     "afterpay": "APT",
     "zip": "ZIP",
     "nab": "NAB",
-    "optiver": "OPT",
     "coles": "COL",
 }
 
@@ -81,6 +86,69 @@ _ASX_HEADERS = {
     "Accept": "application/json, text/plain, */*",
     "Referer": "https://www.asx.com.au/",
 }
+
+# ── CSV lookup (loaded once at module import) ─────────────────────────────────
+
+_CSV_PATH = os.path.join(os.path.dirname(__file__), "ASXListedCompanies.csv")
+
+# Legal words stripped before name comparison so "XERO LIMITED" matches "Xero".
+_LEGAL_WORDS = re.compile(
+    r"\b(limited|ltd|pty|corporation|corp|inc|plc|nl|reit)\b\.?",
+    re.IGNORECASE,
+)
+
+
+def _normalize_for_match(name: str) -> str:
+    """Lowercase, strip legal suffixes and punctuation, collapse whitespace."""
+    name = name.strip().rstrip(".")
+    name = _LEGAL_WORDS.sub("", name)
+    return " ".join(name.lower().split())
+
+
+def _load_asx_csv() -> dict[str, str]:
+    """
+    Parse ASXListedCompanies.csv into {normalized_name: ticker}.
+    Called once at module load — takes <5 ms, no network, no cost.
+    """
+    result: dict[str, str] = {}
+    try:
+        with open(_CSV_PATH, encoding="utf-8") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) < 2:
+                    continue
+                name, ticker = row[0].strip(), row[1].strip()
+                # Skip header rows and blank rows
+                if not name or not ticker or name.lower() == "company name":
+                    continue
+                norm = _normalize_for_match(name)
+                if norm:
+                    result[norm] = ticker
+    except Exception as exc:
+        print(f"  Warning: could not load ASX companies CSV: {exc}")
+    return result
+
+
+# Loaded once when the module is first imported (Lambda warm instance reuses this).
+_ASX_CSV_MAP: dict[str, str] = _load_asx_csv()
+
+
+def _csv_lookup(business_name: str) -> str | None:
+    """
+    Look up a business name in the bundled ASX company list.
+    Uses exact normalized matching: strips legal words then compares lowercase.
+    Returns the ASX ticker, or None if not found.
+    """
+    query = _normalize_for_match(business_name)
+    if not query:
+        return None
+    ticker = _ASX_CSV_MAP.get(query)
+    if ticker:
+        print(f"  Matched ASX ticker '{ticker}' for '{business_name}' via CSV")
+    return ticker
+
+
+# ── Ticker resolution ─────────────────────────────────────────────────────────
 
 
 def _verify_asx_ticker(asx_code: str) -> bool:
@@ -115,21 +183,28 @@ def _find_asx_ticker(business_name: str) -> str | None:
     Resolve a business name to its ASX ticker code.
 
     Strategy (in order):
-    1. Check the hardcoded known-ticker map for major ASX companies.
-    2. Use Finnhub symbol search (Australian exchange results preferred).
-    3. Verify every candidate against the live ASX announcements API.
+    1. Hardcoded map — curated list for major companies where naming is ambiguous.
+    2. CSV lookup — exact normalized match against all ~2,200 ASX-listed companies.
+       Zero network calls, <1 ms, no cost.
+    3. Finnhub symbol search — API fallback for very new or obscure listings.
+    4. yfinance — last resort using Yahoo Finance's .AX suffix search.
 
     Returns the first confirmed ticker, or None if not ASX-listed.
     """
     name_lower = business_name.lower().strip()
 
-    # Step 1 — check hardcoded map (substring match so "Commonwealth Bank of Australia" → CBA)
+    # Step 1 — hardcoded map (substring match handles "Commonwealth Bank of Australia" → CBA)
     for key, ticker in _KNOWN_ASX_TICKERS.items():
         if key in name_lower or name_lower in key:
             print(f"  Matched known ASX ticker '{ticker}' for '{business_name}'")
             return ticker
 
-    # Step 2 — Finnhub search (requires API key)
+    # Step 2 — CSV lookup (exact normalized match, no network calls)
+    ticker = _csv_lookup(business_name)
+    if ticker:
+        return ticker
+
+    # Step 3 — Finnhub search (requires API key)
     if not FINNHUB_API_KEY:
         print("  FINNHUB_API_KEY not set — skipping Finnhub ASX search")
         return None
@@ -153,14 +228,14 @@ def _find_asx_ticker(business_name: str) -> str | None:
             print(f"  Finnhub search error: {exc}")
             continue
 
-    # Step 3 — verify Finnhub candidates against the ASX API (try up to 5)
+    # Verify Finnhub candidates against the ASX API (try up to 5)
     for entry in candidates[:5]:
         raw_symbol = entry.get("displaySymbol") or entry.get("symbol", "")
         # Strip exchange suffix: "CBA.AX" → "CBA", "ORG" → "ORG"
         asx_code = raw_symbol.split(".")[0].upper().strip()
 
-        # ASX codes: 1–6 chars, letters only (or letters + digits for some ETFs)
-        if not asx_code or len(asx_code) > 6 or not asx_code.isalnum():
+        # ASX codes: 1–6 alphanumeric chars; reject purely numeric codes (e.g. foreign listings)
+        if not asx_code or len(asx_code) > 6 or not asx_code.isalnum() or asx_code.isdigit():
             continue
 
         if _verify_asx_ticker(asx_code):

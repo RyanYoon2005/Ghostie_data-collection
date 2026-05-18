@@ -202,18 +202,20 @@ class TestFindAsxTicker:
         finnhub_resp.status_code = 200
         finnhub_resp.json.return_value = {"result": []}
 
+        # Use a name not in the hardcoded map or CSV so the test reaches yfinance
         with patch("ASXCollector.requests.get", return_value=finnhub_resp):
             with patch("ASXCollector.yf.Search", side_effect=Exception("yfinance down")):
-                result = _find_asx_ticker("Xero")
+                result = _find_asx_ticker("Nonexistent Company XYZ999")
                 assert result is None
 
     def test_finnhub_exception_is_handled_gracefully(self):
         mock_search = MagicMock()
         mock_search.quotes = []
 
+        # Use a name not in the hardcoded map or CSV so the test reaches Finnhub
         with patch("ASXCollector.requests.get", side_effect=Exception("network error")):
             with patch("ASXCollector.yf.Search", return_value=mock_search):
-                result = _find_asx_ticker("Xero")
+                result = _find_asx_ticker("Nonexistent Company XYZ999")
                 assert result is None
 
 
