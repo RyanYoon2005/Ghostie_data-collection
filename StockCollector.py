@@ -2,6 +2,7 @@ import requests
 import json
 import argparse
 import os
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from datetime import datetime, timedelta
 import yfinance as yf
 
@@ -86,8 +87,17 @@ def collect_stock_history(symbol: str, days_back: int = MAX_CANDLE_DAYS) -> list
     date_to   = datetime.now().strftime("%Y-%m-%d")
 
     try:
-        ticker = yf.Ticker(symbol)
-        hist   = ticker.history(start=date_from, end=date_to, interval="1d")
+        def _fetch():
+            ticker = yf.Ticker(symbol)
+            return ticker.history(start=date_from, end=date_to, interval="1d")
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_fetch)
+            try:
+                hist = future.result(timeout=10)
+            except FuturesTimeoutError:
+                print(f"  yfinance timed out for {symbol}")
+                return []
 
         if hist.empty:
             print(f"  yfinance: no candle data for {symbol}")
